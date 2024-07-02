@@ -1,0 +1,301 @@
+//Code for Sensor’s:
+#include <reg51.h>
+#include <stdio.h>
+
+#define LCD_data  P0          // LCD Data port
+sbit RS = P3^0;               // Register select
+sbit RW = P3^1;               // Read Write
+sbit EN = P3^2;               // Enable
+sbit BUZZER_PIN = P1^0;       // Buzzer pin
+
+// Define pins for sensors
+sbit FLAME_SENSOR_PIN = P2^0;
+sbit TEMP_SENSOR_PIN = P2^1;
+sbit GAS_SENSOR_PIN = P2^2;
+sbit IR_SENSOR_PIN = P2^3;
+
+// Define threshold values for sensors
+#define FLAME_THRESHOLD    500
+#define TEMP_THRESHOLD     30
+#define GAS_THRESHOLD      200
+#define IR_DETECTION       1
+
+// LCD functions
+void LCD_cmd(unsigned char cmd) {
+    LCD_data = cmd;
+    RS = 0;
+    RW = 0;
+    EN = 1;
+    delay_ms(1);
+    EN = 0;
+}
+
+void LCD_data1(unsigned char dat) {
+    LCD_data = dat;
+    RS = 1;
+    RW = 0;
+    EN = 1;
+    delay_ms(1);
+    EN = 0;
+}
+
+void LCD_init() {
+    LCD_cmd(0x38);   // initialization of 16X2 LCD in 8bit mode
+    delay_ms(1);
+    LCD_cmd(0x0E);   // cursor ON
+    delay_ms(1);
+    LCD_cmd(0x01);   // clear LCD
+    delay_ms(1);
+    LCD_cmd(0x06);   // shift cursor to right
+    delay_ms(1);
+    LCD_cmd(0x80);   // select 1st line
+    delay_ms(1);
+}
+
+// Function to initialize ADC
+void init_adc() {
+    ADCON = 0x80;   // Enable ADC
+}
+
+// Function to read analog sensor values
+unsigned int read_sensor(unsigned char sensor_pin) {
+    ADCON &= 0xF0;  // Clear ADC channel selection bits
+    ADCON |= sensor_pin;  // Select ADC channel
+    ADCON |= 0x08;  // Start ADC conversion
+    while (ADCON & 0x08);  // Wait for conversion to complete
+    return ((ADCH << 8) | (ADCL));
+}
+
+// Function to initialize IO pins
+void init_pins() {
+    P2 |= 0x0F;     // Set sensor pins as input
+    P1 &= ~(1 << BUZZER_PIN);  // Set buzzer pin as output
+}
+
+void main() {
+    unsigned int flame_value, temp_value, gas_value, ir_value;
+
+    init_adc();     // Initialize ADC
+    init_pins();    // Initialize IO pins
+    LCD_init();     // Initialize LCD
+
+    while(1) {
+        // Read sensor values
+        flame_value = read_sensor(0x00);
+        temp_value = read_sensor(0x01);
+        gas_value = read_sensor(0x02);
+        ir_value = (P2 & 0x08) >> 3;
+
+        // Check if flame is detected
+        if (flame_value > FLAME_THRESHOLD ||
+            temp_value > TEMP_THRESHOLD ||
+            gas_value > GAS_THRESHOLD ||
+            ir_value == IR_DETECTION) {
+            // Activate buzzer
+            BUZZER_PIN = 1;
+            delay_ms(1000);
+            BUZZER_PIN = 0;
+
+            // Display alert message on LCD
+            LCD_cmd(0x01); // Clear LCD
+            delay_ms(1);
+            LCD_cmd(0x80); // Move cursor to the beginning of the 1st line
+            delay_ms(1);
+            LCD_data1('A');
+            LCD_data1('l');
+            LCD_data1('e');
+            LCD_data1('r');
+            LCD_data1('t');
+            LCD_data1('!');
+            LCD_cmd(0xC0); // Move cursor to the beginning of the 2nd line
+            delay_ms(1);
+            LCD_data1('D');
+            LCD_data1('a');
+            LCD_data1('n');
+            LCD_data1('g');
+            LCD_data1('e');
+            LCD_data1('r');
+        }
+    }
+}
+
+
+
+
+
+
+
+
+//Code For Door Lock System:
+#include <reg51.h>
+#include <stdio.h>
+
+#define LCD_data  P0          // LCD Data port
+sbit RS = P3^0;               // Register select
+sbit RW = P3^1;               // Read Write
+sbit EN = P3^2;               // Enable
+sbit BUZZER_PIN = P1^0;       // Buzzer pin
+
+// Define pins for keypad
+sbit ROW1 = P2^0;
+sbit ROW2 = P2^1;
+sbit ROW3 = P2^2;
+sbit ROW4 = P2^3;
+sbit COL1 = P2^4;
+sbit COL2 = P2^5;
+sbit COL3 = P2^6;
+sbit COL4 = P2^7;
+
+// Define motor control pins
+sbit MOTOR_PIN1 = P1^1;
+sbit MOTOR_PIN2 = P1^2;
+
+// LCD functions
+void LCD_cmd(unsigned char cmd) {
+    LCD_data = cmd;
+    RS = 0;
+    RW = 0;
+    EN = 1;
+    delay_ms(1);
+    EN = 0;
+}
+
+void LCD_data1(unsigned char dat) {
+    LCD_data = dat;
+    RS = 1;
+    RW = 0;
+    EN = 1;
+    delay_ms(1);
+    EN = 0;
+}
+
+void LCD_init() {
+    LCD_cmd(0x38);   // initialization of 16X2 LCD in 8bit mode
+    delay_ms(1);
+    LCD_cmd(0x0E);   // cursor ON
+    delay_ms(1);
+    LCD_cmd(0x01);   // clear LCD
+    delay_ms(1);
+    LCD_cmd(0x06);   // shift cursor to right
+    delay_ms(1);
+    LCD_cmd(0x80);   // select 1st line
+    delay_ms(1);
+}
+
+// Initialize keypad
+void init_keypad() {
+    ROW1 = 1;
+    ROW2 = 1;
+    ROW3 = 1;
+    ROW4 = 1;
+}
+
+// Scan keypad
+unsigned char scan_keypad() {
+    unsigned char key = 0xFF;
+
+    ROW1 = 0;
+    if (COL1 == 0) key = '1';
+    if (COL2 == 0) key = '2';
+    if (COL3 == 0) key = '3';
+    if (COL4 == 0) key = 'A';
+    ROW1 = 1;
+
+    ROW2 = 0;
+    if (COL1 == 0) key = '4';
+    if (COL2 == 0) key = '5';
+    if (COL3 == 0) key = '6';
+    if (COL4 == 0) key = 'B';
+    ROW2 = 1;
+
+    ROW3 = 0;
+    if (COL1 == 0) key = '7';
+    if (COL2 == 0) key = '8';
+    if (COL3 == 0) key = '9';
+    if (COL4 == 0) key = 'C';
+    ROW3 = 1;
+
+    ROW4 = 0;
+    if (COL1 == 0) key = '*';
+    if (COL2 == 0) key = '0';
+    if (COL3 == 0) key = '#';
+    if (COL4 == 0) key = 'D';
+    ROW4 = 1;
+
+    return key;
+}
+
+void main() {
+    unsigned char password[5] = "23A45B"; // Define the password
+    unsigned char input[5] = "";        // Define the input buffer
+    unsigned char key;
+    unsigned char i = 0;
+
+    LCD_init();     // Initialize LCD
+    init_keypad();  // Initialize keypad
+
+    while(1) {
+        key = scan_keypad();  // Scan the keypad
+
+        if (key != 0xFF) {    // Key pressed
+            if (key == '#') { // Check if enter key is pressed
+                // Check the password
+                if (strcmp(input, password) == 0) {
+                    // Open the door
+                    MOTOR_PIN1 = 1;
+                    MOTOR_PIN2 = 0;
+                    delay_ms(3000); // Open for 3 seconds
+                    MOTOR_PIN1 = 0;
+                    MOTOR_PIN2 = 0;
+                    LCD_cmd(0x01); // Clear the LCD
+                    LCD_data1('D');
+                    LCD_data1('o');
+                    LCD_data1('o');
+                    LCD_data1('r');
+                    LCD_data1(' ');
+                    LCD_data1('O');
+                    LCD_data1('p');
+                    LCD_data1('e');
+                    LCD_data1('n');
+                } else {
+                    // Display incorrect password
+                    LCD_cmd(0x01); // Clear the LCD
+                    LCD_data1('I');
+                    LCD_data1('n');
+                    LCD_data1('c');
+                    LCD_data1('o');
+                    LCD_data1('r');
+                    LCD_data1('r');
+                    LCD_data1('e');
+                    LCD_data1('c');
+                    LCD_data1('t');
+                    LCD_data1(' ');
+                    LCD_data1('P');
+                    LCD_data1('a');
+                    LCD_data1('s');
+                    LCD_data1('s');
+                    LCD_data1('w');
+                    LCD_data1('o');
+                    LCD_data1('r');
+                    LCD_data1('d');
+                }
+
+                // Reset the input buffer
+                for (i = 0; i < 5; i++) {
+                    input[i] = 0;
+                }
+                i = 0;
+            } else {
+                // Store the input key
+                input[i] = key;
+                i++;
+
+                // Display asterisks on LCD
+                LCD_data1('*');
+            }
+
+            // Reset the key
+            key = 0xFF;
+        }
+    }
+}
